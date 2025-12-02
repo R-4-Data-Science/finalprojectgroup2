@@ -37,30 +37,3 @@ model_key <- function(vars_idx) {
   if (length(vars_idx) == 0L) return("")
   paste(sort(vars_idx), collapse = ",")
 }
-#' Internal utility: compute AIC for a given variable set
-#' @keywords internal
-fit_aic <- function(vars_idx, df, var_names, family) {
-  if (length(vars_idx) == 0L) {
-    form <- y ~ 1
-  } else {
-    # Construct formula: y ~ x1 + x2 ...
-    vars_char <- var_names[vars_idx]
-    form <- as.formula(paste("y ~", paste(vars_char, collapse = " + ")))
-  }
-  
-  if (family == "gaussian") {
-    fit <- stats::lm(form, data = df)
-  } else {
-    fit <- stats::glm(form, family = stats::binomial(), data = df)
-  }
-  
-  list(aic = stats::AIC(fit), vars = vars_idx)
-}
-
-#' Internal utility: build a key string for a model
-#' @keywords internal
-model_key <- function(vars_idx) {
-  if (length(vars_idx) == 0L) return("")
-  paste(sort(vars_idx), collapse = ",")
-}
-

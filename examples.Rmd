@@ -76,7 +76,7 @@ plaus
 
 Note - Look over and make sure parameters match project description
 
-## 5.2 - Binomial Linear Regression
+## 5.2 - Binomial Logistic Regression
 ```{r example-5-2-binomial, message=FALSE}
 set.seed(2)
 

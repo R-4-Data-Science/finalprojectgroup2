@@ -1,1 +1,89 @@
+---
+title: "Model Selection on Diabetes Data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Model Selection on Diabetes Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+knitr::opts_chunk$set(
+collapse = TRUE,
+comment = "#>"
+)
+library(finalprojectgroup2)
+
+## Introduction
+
+This vignette demonstrates the multi-path model selection algorithm on the **Diabetes** dataset (Efron et al., 2004). The goal is to identify stable predictors of disease progression.
+
+## Data Loading
+
+We use the `efron2004` dataset from the `care` package.
+
+data("efron2004", package = "care")
+
+X <- efron2004$x
+y <- efron2004$y
+
+colnames(X) <- make.names(colnames(X))
+
+cat("Dataset dimensions:", nrow(X), "observations,", ncol(X), "predictors.\n")
+
+
+## Step 1: Build Paths
+
+We run forward selection allowing multiple promising paths. We set `delta = 2` to keep models within 2 AIC units of the best child at each step.
+
+forest <- build_paths(
+X, y,
+family = "gaussian",
+K = 10,
+eps = 1e-5,
+delta = 2,
+L = 20
+)
+
+head(forest$aic_by_model, 10)
+
+
+## Step 2: Stability Analysis
+
+We perform bootstrap resampling 50 times to determine which variables are consistently selected.
+
+set.seed(2025)
+stab <- stability(
+X, y,
+family = "gaussian",
+B = 50,
+resample_type = "bootstrap",
+K = 10,
+eps = 1e-5,
+delta = 2,
+L = 20
+)
+
+top_vars <- order(stab$pi, decreasing = TRUE)[1:10]
+cbind(Variable = colnames(X)[top_vars], Stability = round(stab$pi[top_vars], 3))
+
+
+## Step 3: Plausible Models
+
+We filter the forest to find models within 2 AIC units of the minimum (`Delta = 2`) with average stability at least 0.6 (`tau = 0.6`).
+
+plausible <- plausible_models(forest, stab, Delta = 2, tau = 0.6)
+
+if (nrow(plausible) > 0) {
+knitr::kable(
+plausible[, c("size", "aic", "pi_bar", "key")],
+digits = 3,
+caption = "Plausible Models: Low AIC + High Stability"
+)
+} else {
+cat("No models met both AIC and stability criteria.\n")
+}
+
+
+## Conclusion
+
+The table above shows models that balance goodness-of-fit (AIC) with reliability (stability scores). These represent competing but equally plausible explanations of disease progression.
 

@@ -14,6 +14,8 @@ devtools::install_github("R-4-Data-Science/finalprojectgroup2")
 # Load the package
 library(finalprojectgroup2)
 
+library(reshape2)
+library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(purrr)
@@ -72,69 +74,56 @@ plaus <- plausible_models(
 
 plaus # plausible model object
 
-# Extract all unique predictors
-all_preds <- plaus$vars %>% unlist() %>% unique()
+# 4. Extra: create a heatmap of strength of each predictor in plausible models
+# This heatmap will display a visual representation of each predictor's influence on an individual model.
+# The darker the color, the more relative influence a predictor has.
+# Much lighter colors indicate the predictor is present, but has little influence.
+# Blank colors indicate the predictor is not present in the model.
 
-# Build binary presence matrix
-binmat <- map(plaus$vars, ~ all_preds %in% .x) %>%
-  do.call(rbind, .) %>%
-  as.data.frame()
+p <- length(stab$pi)
+m <- nrow(plaus)
 
-colnames(binmat) <- all_preds
-rownames(binmat) <- plaus$model_id
+strength_mat <- matrix(0, nrow = p, ncol = m)
 
-# Apply weights *by row*
-weights <- plaus$pi_bar
-wbinmat <- sweep(binmat, 1, weights, `*`)
+for (k in seq_len(m)) {
+  vars_k <- plaus$vars[[k]]          # predictor indices in model k
+  strength_mat[vars_k, k] <- stab$pi[vars_k]
+}
 
-# Plot
-library(ggplot2)
+rownames(strength_mat) <- paste0("X", seq_len(p))
+colnames(strength_mat) <- paste0("M", seq_len(m))
 
-bin_long <- wbinmat %>%
-  as.data.frame() %>%
-  mutate(model_id = rownames(.)) %>%
-  pivot_longer(-model_id, names_to = "predictor", values_to = "present")
-
-ggplot(bin_long, aes(predictor, model_id, fill = present)) +
-  geom_tile() +
-  scale_fill_gradient(low = "white", high = "red") +
-  theme_minimal() +
-  labs(x = "Predictor", y = "Model", fill = "Included")
-
-
-
-
-# Extract all unique predictors
-all_preds <- plaus$vars %>% unlist() %>% unique()
-
-# Binary presence matrix (TRUE/FALSE)
-binmat <- map(plaus$vars, ~ all_preds %in% .x) %>%
-  do.call(rbind, .) %>%
-  as.data.frame()
-
-colnames(binmat) <- all_preds
-rownames(binmat) <- plaus$model_id
-
-freq <- colMeans(binmat)   # proportion of models that include each predictor
-
-freq_df <- data.frame(
-  predictor = names(freq),
-  frequency = freq
+rel_strength_mat <- apply(
+  strength_mat,
+  2,   # per model (per column)
+  function(col) {
+    s <- sum(col)                  # sum of included predictors' stabilities
+    if (s == 0) col else col / s   # divide by sum, not by max
+  }
 )
 
-ggplot(freq_df, aes(x = predictor, y = 1, fill = frequency)) +
-  geom_tile() +
-  scale_fill_gradient(low = "white", high = "red") +
-  theme_minimal() +
-  labs(x = "Predictor", y = NULL, fill = "Frequency") +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
+rel_strength_mat <- t(rel_strength_mat) # transposing so row and columns are flipped
 
-plaus$vars
+df_long <- melt(rel_strength_mat, varnames = c("model", "predictor"), value.name = "strength")
+
+
+ggplot(df_long, aes(x = predictor, y = model, fill = strength)) +
+  geom_tile() +
+  scale_fill_gradient(low = "black", high = "green", limits = c(0, 0.5)) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = "Predictor",
+    y = "Plausible Model",
+    fill = "Relative\nStrength"
+  )
+
+
 ```
 
-
-Note - Look over and make sure parameters match project description
 
 ## 5.2 - Binomial Logistic Regression
 ```{r example-5-2-binomial, message=FALSE}
@@ -160,7 +149,7 @@ forest_bin <- build_paths(
   family = "binomial",
   K      = min(p, 10),
   eps    = 1e-6,
-  delta  = 1,
+  delta  = 10,
   L      = 50
 )
 
@@ -176,7 +165,7 @@ stab_bin <- stability(
   resample_type = "bootstrap",
   K             = min(p, 10),
   eps           = 1e-6,
-  delta         = 1,
+  delta         = 10,
   L             = 50
 )
 
@@ -187,11 +176,59 @@ stab_bin$pi
 plaus_bin <- plausible_models(
   forest = forest_bin,
   stab   = stab_bin,
-  Delta  = 6,
+  Delta  = 10,
   tau    = 0.5
 )
 
 plaus_bin
+
+# Extra: create a heatmap of strength of each predictor in plausible models
+# This heatmap will display a visual representation of each predictor's influence on an individual model.
+# The darker the color, the more relative influence a predictor has.
+# Much lighter colors indicate the predictor is present, but has little influence.
+# Blank colors indicate the predictor is not present in the model.
+
+p <- length(stab_bin$pi)
+m <- nrow(plaus_bin)
+
+strength_mat <- matrix(0, nrow = p, ncol = m)
+
+for (k in seq_len(m)) {
+  vars_k <- plaus_bin$vars[[k]]          # predictor indices in model k
+  strength_mat[vars_k, k] <- stab_bin$pi[vars_k]
+}
+
+rownames(strength_mat) <- paste0("X", seq_len(p))
+colnames(strength_mat) <- paste0("M", seq_len(m))
+
+rel_strength_mat <- apply(
+  strength_mat,
+  2,   # per model (per column)
+  function(col) {
+    s <- sum(col)                  # sum of included predictors' stabilities
+    if (s == 0) col else col / s   # divide by sum, not by max
+  }
+)
+
+rel_strength_mat <- t(rel_strength_mat) # transposing so row and columns are flipped
+
+df_long <- melt(rel_strength_mat, varnames = c("model", "predictor"), value.name = "strength")
+
+
+ggplot(df_long, aes(x = predictor, y = model, fill = strength)) +
+  geom_tile() +
+  scale_fill_gradient(low = "black", high = "green", limits = c(0, 0.5)) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = "Predictor",
+    y = "Plausible Model",
+    fill = "Relative\nStrength"
+  )
+
 
 ## 4. If there is at least one plausible model, fit it and compute confusion metrics
 if (nrow(plaus_bin) > 0) {

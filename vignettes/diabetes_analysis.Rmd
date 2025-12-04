@@ -79,7 +79,7 @@ cbind(Variable = colnames(X)[top_vars], Stability = round(stab$pi[top_vars], 3))
 We filter the forest to find models within 2 AIC units of the minimum (`Delta = 2`) with average stability at least 0.6 (`tau = 0.6`).
 
 ```{r plausible}
-plausible <- plausible_models(forest, stab, Delta = 2, tau = 0.6)
+plausible <- plausible_models(forest, stab, Delta = 4, tau = 0.4)
 
 if (nrow(plausible) > 0) {
   knitr::kable(

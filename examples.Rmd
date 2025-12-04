@@ -14,8 +14,9 @@ devtools::install_github("R-4-Data-Science/finalprojectgroup2")
 # Load the package
 library(finalprojectgroup2)
 
-# Optional: set seed for reproducibility of examples
-set.seed(1)
+library(dplyr)
+library(tidyr)
+library(purrr)
 ```
 
 
@@ -24,7 +25,7 @@ set.seed(1)
 ```{r}
 ## 5.1 Linear regression (Gaussian) — using package functions
 
-set.seed(1)
+set.seed(5)
 n <- 120; p <- 8
 X <- matrix(rnorm(n * p), n, p)
 beta <- c(2, -1.5, 0, 0, 1, rep(0, p - 5))
@@ -38,7 +39,7 @@ forest <- build_paths(
   family = "gaussian",
   K      = min(p, 10),
   eps    = 1e-6,
-  delta  = 1,
+  delta  = 10,
   L      = 50
 )
 
@@ -54,7 +55,7 @@ stab <- stability(
   resample_type = "bootstrap",
   K             = min(p, 10),
   eps           = 1e-6,
-  delta         = 1,
+  delta         = 10,
   L             = 50
 )
 
@@ -65,12 +66,71 @@ stab$pi
 plaus <- plausible_models(
   forest = forest,
   stab   = stab,
-  Delta  = 2,
+  Delta  = 10,
   tau    = 0.6
 )
 
-plaus
+plaus # plausible model object
 
+# Extract all unique predictors
+all_preds <- plaus$vars %>% unlist() %>% unique()
+
+# Build binary presence matrix
+binmat <- map(plaus$vars, ~ all_preds %in% .x) %>%
+  do.call(rbind, .) %>%
+  as.data.frame()
+
+colnames(binmat) <- all_preds
+rownames(binmat) <- plaus$model_id
+
+# Apply weights *by row*
+weights <- plaus$pi_bar
+wbinmat <- sweep(binmat, 1, weights, `*`)
+
+# Plot
+library(ggplot2)
+
+bin_long <- wbinmat %>%
+  as.data.frame() %>%
+  mutate(model_id = rownames(.)) %>%
+  pivot_longer(-model_id, names_to = "predictor", values_to = "present")
+
+ggplot(bin_long, aes(predictor, model_id, fill = present)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_minimal() +
+  labs(x = "Predictor", y = "Model", fill = "Included")
+
+
+
+
+# Extract all unique predictors
+all_preds <- plaus$vars %>% unlist() %>% unique()
+
+# Binary presence matrix (TRUE/FALSE)
+binmat <- map(plaus$vars, ~ all_preds %in% .x) %>%
+  do.call(rbind, .) %>%
+  as.data.frame()
+
+colnames(binmat) <- all_preds
+rownames(binmat) <- plaus$model_id
+
+freq <- colMeans(binmat)   # proportion of models that include each predictor
+
+freq_df <- data.frame(
+  predictor = names(freq),
+  frequency = freq
+)
+
+ggplot(freq_df, aes(x = predictor, y = 1, fill = frequency)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_minimal() +
+  labs(x = "Predictor", y = NULL, fill = "Frequency") +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+plaus$vars
 ```
 
 
@@ -78,7 +138,7 @@ Note - Look over and make sure parameters match project description
 
 ## 5.2 - Binomial Logistic Regression
 ```{r example-5-2-binomial, message=FALSE}
-set.seed(2)
+set.seed(10)
 
 ## Simulate a logistic regression dataset
 n <- 200
@@ -127,8 +187,8 @@ stab_bin$pi
 plaus_bin <- plausible_models(
   forest = forest_bin,
   stab   = stab_bin,
-  Delta  = 2,
-  tau    = 0.6
+  Delta  = 6,
+  tau    = 0.5
 )
 
 plaus_bin

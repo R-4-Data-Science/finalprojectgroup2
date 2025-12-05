@@ -43,7 +43,7 @@ cat("Dataset dimensions:", nrow(X), "observations,", ncol(X), "predictors.\n")
 
 ## Step 1: Build Paths
 
-We run forward selection allowing multiple promising paths. We set `delta = 2` to keep models within 2 AIC units of the best child at each step.
+We run forward selection allowing multiple promising paths. We set `delta = 4` to keep models within 4 AIC units of the best child at each step.
 
 ```{r build}
 forest <- build_paths(
@@ -51,7 +51,7 @@ forest <- build_paths(
   family = "gaussian",
   K = 10,
   eps = 1e-5,
-  delta = 2,
+  delta = 4,
   L = 20
 )
 
@@ -72,7 +72,7 @@ stab <- stability(
   resample_type = "bootstrap",
   K = 10,
   eps = 1e-5,
-  delta = 2,
+  delta = 4,
   L = 20
 )
 

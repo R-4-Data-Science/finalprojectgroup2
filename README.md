@@ -31,8 +31,12 @@ For extended examples and diagnostics, see package vignettes:
 ## Installation
 
 ```r
-remotes::install_github("R-4-Data-Science/finalprojectgroup2")
-```
+install.packages("remotes")
+
+remotes::install_github(
+  "R-4-Data-Science/finalprojectgroup2",
+  dependencies = TRUE
+)```
 
 ---
 
